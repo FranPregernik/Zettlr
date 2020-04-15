@@ -35,24 +35,67 @@
       return maxDepth
     }
 
-    var firstLine = cm.getLine(start.line)
-    var nextLine = cm.getLine(start.line + 1)
-    var level = headerLevel(start.line, firstLine, nextLine)
-    if (level === maxDepth) return undefined
-
-    var lastLineNo = cm.lastLine()
-    var end = start.line
-    var nextNextLine = cm.getLine(end + 2)
-    while (end < lastLineNo) {
-      if (headerLevel(end + 1, nextLine, nextNextLine) <= level) break
-      ++end
-      nextLine = nextNextLine
-      nextNextLine = cm.getLine(end + 2)
+    function bulletLevel (line) {
+      // simple check, maybe improove
+      var match = line && line.match(/^\s*(\*|-)/)
+      if (match && match[0]) return match[0].length
+      return -1
     }
 
-    return {
-      from: CodeMirror.Pos(start.line, firstLine.length),
-      to: CodeMirror.Pos(end, cm.getLine(end).length)
+    function headerFold () {
+      var firstLine = cm.getLine(start.line)
+      var nextLine = cm.getLine(start.line + 1)
+      var level = headerLevel(start.line, firstLine, nextLine)
+      if (level === maxDepth) return undefined
+
+      var lastLineNo = cm.lastLine()
+      var end = start.line
+      var nextNextLine = cm.getLine(end + 2)
+      while (end < lastLineNo) {
+        if (headerLevel(end + 1, nextLine, nextNextLine) <= level) break
+        ++end
+        nextLine = nextNextLine
+        nextNextLine = cm.getLine(end + 2)
+      }
+
+      return {
+        from: CodeMirror.Pos(start.line, firstLine.length),
+        to: CodeMirror.Pos(end, cm.getLine(end).length)
+      }
+    }
+
+    function outlineFold () {
+      var firstLine = cm.getLine(start.line)
+      var nextLine = cm.getLine(start.line + 1)
+      var level = bulletLevel(firstLine)
+
+      if (level < 0) return undefined
+      if (level === maxDepth) return undefined
+
+      var lastLineNo = cm.lastLine()
+      var end = start.line
+      var nextNextLine = cm.getLine(end + 2)
+      while (end < lastLineNo) {
+        if (bulletLevel(nextLine) <= level) break
+        ++end
+        nextLine = nextNextLine
+        nextNextLine = cm.getLine(end + 2)
+      }
+
+      if (start.line === end) return undefined
+
+      return {
+        from: CodeMirror.Pos(start.line, firstLine.length),
+        to: CodeMirror.Pos(end, cm.getLine(end).length)
+      }
+    }
+
+    // determine what fold to calculate
+    var firstLine = cm.getLine(start.line)
+    if (firstLine.match(/^\s*(\*|-)/)) {
+      return outlineFold()
+    } else {
+      return headerFold()
     }
   })
 })
